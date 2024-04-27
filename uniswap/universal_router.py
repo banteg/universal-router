@@ -318,6 +318,7 @@ class Planner(BaseModel):
         encode_command(command, *args)
         self.commands.append(command)
         self.inputs.append(args)
+        return self
 
     def build(self) -> tuple[bytes, list[bytes]]:
         commands = bytes(self.commands)
