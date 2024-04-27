@@ -85,6 +85,9 @@ def encode_path(path: list) -> bytes:
 
 
 def encode_command(command: Commands, *args) -> tuple[Commands, bytes]:
+    """
+    @dev see https://github.com/Uniswap/universal-router/blob/main/contracts/base/Dispatcher.sol#L41
+    """
     match command, args:
         case Commands.V3_SWAP_EXACT_IN | Commands.V3_SWAP_EXACT_OUT, (
             str(recipient),
@@ -102,6 +105,11 @@ def encode_command(command: Commands, *args) -> tuple[Commands, bytes]:
                     ["address", "uint256", "uint256", "bytes", "bool"],
                     [recipient, amount, amount_min, path, payer_is_user],
                 ),
+            )
+        case Commands.PERMIT2_TRANSFER_FROM, (str(token), str(recipient), int(amount)):
+            return (
+                command,
+                encode(["address", "address", "uint160"], [token, recipient, amount]),
             )
         case _:
             raise NotImplementedError("unknown command or param types")

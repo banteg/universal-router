@@ -2,6 +2,7 @@ import pytest
 
 from uniswap.universal_router import Commands, encode_command
 
+dev = "0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266"
 weth = "0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2"
 yfi = "0x0bc529c00C6401aEF6D220BE8C6Ea1667F6Ad93e"
 fee = 10000
@@ -37,9 +38,16 @@ swaps = [
 
 
 @pytest.mark.parametrize("payload", swaps)
-def test_encode_swap(payload, accounts):
+def test_encode_swap(payload):
     command, data = encode_command(
-        payload["command"], str(accounts[0]), amount, amount_min, payload["path"], payer_is_user
+        payload["command"], dev, amount, amount_min, payload["path"], payer_is_user
     )
     assert command == payload["command"]
     assert data == payload["encoded"]
+
+
+def test_encode_permit_transfer_from():
+    command, data = encode_command(Commands.PERMIT2_TRANSFER_FROM, yfi, dev, amount)
+    assert data == bytes.fromhex(
+        "0000000000000000000000000bc529c00c6401aef6d220be8c6ea1667f6ad93e000000000000000000000000f39fd6e51aad88f6f4ce6ab8827279cfffb922660000000000000000000000000000000000000000000000000de0b6b3a7640000"
+    )
