@@ -83,20 +83,20 @@ class Command(IntEnum):
     # COMMAND_PLACEHOLDER for 0x23 to 0x3f (all unused)
 
 
-REVERTIBLE_COMMANDS = [
-    CommandType.SEAPORT_V1_5,
-    CommandType.SEAPORT_V1_4,
-    CommandType.NFTX,
-    CommandType.LOOKS_RARE_V2,
-    CommandType.X2Y2_721,
-    CommandType.X2Y2_1155,
-    CommandType.FOUNDATION,
-    CommandType.SUDOSWAP,
-    CommandType.NFT20,
-    CommandType.EXECUTE_SUB_PLAN,
-    CommandType.CRYPTOPUNKS,
-    CommandType.ELEMENT_MARKET,
-]
+REVERTIBLE_COMMANDS = {
+    Command.SEAPORT_V1_5,
+    Command.SEAPORT_V1_4,
+    Command.NFTX,
+    Command.LOOKS_RARE_V2,
+    Command.X2Y2_721,
+    Command.X2Y2_1155,
+    Command.FOUNDATION,
+    Command.SUDOSWAP,
+    Command.NFT20,
+    Command.EXECUTE_SUB_PLAN,
+    Command.CRYPTOPUNKS,
+    Command.ELEMENT_MARKET,
+}
 
 
 # some structs ported from
@@ -308,3 +308,26 @@ def encode_command(command: Command, *args) -> bytes:
             )
         case _:
             raise NotImplementedError("unknown command or param types")
+
+
+class Planner(BaseModel):
+    commands: list[Command] = []
+    inputs: list[list] = []
+
+    def add(self, command: Command, *args, allow_revert=False):
+        if allow_revert:
+            if command not in REVERTIBLE_COMMANDS:
+                raise ValueError(f"{command.name} cannot be allowed to revert")
+            command |= Command.FLAG_ALLOW_REVERT
+
+        # check it's encodeable
+        encode_command(command, *args)
+        self.commands.append(command)
+        self.inputs.append(args)
+
+    def build(self) -> tuple[bytes, list[bytes]]:
+        commands = bytes(self.commands)
+        inputs = [
+            encode_command(command, *args) for command, args in zip(self.commands, self.inputs)
+        ]
+        return commands, inputs
