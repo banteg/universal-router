@@ -1,2 +1,12 @@
+[build-system]
+requires = ["flit_core >=3.2,<4"]
+build-backend = "flit_core.buildapi"
+
+[project]
+name = "uniswap"
+authors = [{name = "banteg"}]
+classifiers = ["License :: OSI Approved :: MIT License"]
+dynamic = ["version", "description"]
+
 [tool.ruff]
-line-length = 120
+line-length = 100
