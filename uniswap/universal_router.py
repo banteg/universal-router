@@ -1,9 +1,15 @@
-# converted from https://github.com/Uniswap/universal-router/blob/main/contracts/libraries/Commands.sol
 from enum import IntEnum
+from itertools import cycle
+
 from eth_abi import encode
+from eth_abi.packed import encode_packed
 
 
 class Commands(IntEnum):
+    """
+    @dev see https://github.com/Uniswap/universal-router/blob/main/contracts/libraries/Commands.sol
+    """
+
     # Masks to extract certain bits of commands
     FLAG_ALLOW_REVERT = 0x80
     COMMAND_TYPE_MASK = 0x3F
@@ -73,24 +79,41 @@ class Commands(IntEnum):
     # COMMAND_PLACEHOLDER for 0x23 to 0x3f (all unused)
 
 
+def encode_path(path: list) -> bytes:
+    types = [type for _, type in zip(path, cycle(["address", "uint24"]))]
+    return encode_packed(types, path)
+
+
 def encode_command(command: Commands, *args):
     match command, args:
         case Commands.V3_SWAP_EXACT_IN, (
             str(recipient),
             int(amount_in),
             int(amount_out_min),
+            bytes(path),
             bool(payer_is_user),
         ):
             return (
                 Commands.V3_SWAP_EXACT_IN,
                 encode(
-                    ["address", "uint256", "uint256", "bool"],
-                    [recipient, amount_in, amount_out_min, payer_is_user],
+                    ["address", "uint256", "uint256", "bytes", "bool"],
+                    [recipient, amount_in, amount_out_min, path, payer_is_user],
+                ),
+            )
+        case Commands.V3_SWAP_EXACT_IN, (
+            str(recipient),
+            int(amount_in),
+            int(amount_out_min),
+            list(path),
+            bool(payer_is_user),
+        ):
+            path = encode_path(path)
+            return (
+                Commands.V3_SWAP_EXACT_IN,
+                encode(
+                    ["address", "uint256", "uint256", "bytes", "bool"],
+                    [recipient, amount_in, amount_out_min, path, payer_is_user],
                 ),
             )
         case _:
             raise NotImplementedError("unknown command or param types")
-
-
-if __name__ == "__main__":
-    print(encode_command(Commands.V3_SWAP_EXACT_IN, f"0x{'0'*40}", 123, 0, False))
