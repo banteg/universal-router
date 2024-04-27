@@ -323,3 +323,177 @@ class Planner(BaseModel):
             encode_command(command, *args) for command, args in zip(self.commands, self.inputs)
         ]
         return commands, inputs
+
+    def v3_swap_exact_in(
+        self,
+        recipient: str,
+        amount: int,
+        amount_min: int,
+        path: list | bytes,
+        payer_is_user: bool,
+        allow_revert=False,
+    ):
+        self.add(
+            Command.V3_SWAP_EXACT_IN,
+            recipient,
+            amount,
+            amount_min,
+            path,
+            payer_is_user,
+            allow_revert=allow_revert,
+        )
+
+    def v3_swap_exact_out(
+        self,
+        recipient: str,
+        amount: int,
+        amount_min: int,
+        path: list | bytes,
+        payer_is_user: bool,
+        allow_revert=False,
+    ):
+        self.add(
+            Command.V3_SWAP_EXACT_OUT,
+            recipient,
+            amount,
+            amount_min,
+            path,
+            payer_is_user,
+            allow_revert=allow_revert,
+        )
+
+    def permit2_transfer_from(self, token: str, recipient: str, amount: int, allow_revert=False):
+        self.add(Command.PERMIT2_TRANSFER_FROM, token, recipient, amount, allow_revert=allow_revert)
+
+    def permit2_transfer_from_batch(
+        self, batch_details: list[AllowanceTransferDetails], allow_revert=False
+    ):
+        self.add(Command.PERMIT2_TRANSFER_FROM_BATCH, batch_details, allow_revert=allow_revert)
+
+    def permit2_permit(self, permit_single: PermitSingle, data: bytes, allow_revert=False):
+        self.add(Command.PERMIT2_PERMIT, permit_single, data, allow_revert=allow_revert)
+
+    def permit2_permit_batch(self, permit_batch: PermitBatch, data: bytes, allow_revert=False):
+        self.add(Command.PERMIT2_PERMIT_BATCH, permit_batch, data, allow_revert=allow_revert)
+
+    def sweep(self, token: str, recipient: str, amount_min: int, allow_revert=False):
+        self.add(Command.SWEEP, token, recipient, amount_min, allow_revert=allow_revert)
+
+    def transfer(self, token: str, recipient: str, amount: int, allow_revert=False):
+        self.add(Command.TRANSFER, token, recipient, amount, allow_revert=allow_revert)
+
+    def pay_portion(self, token: str, recipient: str, bips: int, allow_revert=False):
+        self.add(Command.PAY_PORTION, token, recipient, bips, allow_revert=allow_revert)
+
+    def v2_swap_exact_in(
+        self,
+        recipient: str,
+        amount: int,
+        amount_min: int,
+        path: list,
+        payer_is_user: bool,
+        allow_revert=False,
+    ):
+        self.add(
+            Command.V2_SWAP_EXACT_IN,
+            recipient,
+            amount,
+            amount_min,
+            path,
+            payer_is_user,
+            allow_revert=allow_revert,
+        )
+
+    def v2_swap_exact_out(
+        self,
+        recipient: str,
+        amount: int,
+        amount_min: int,
+        path: list,
+        payer_is_user: bool,
+        allow_revert=False,
+    ):
+        self.add(
+            Command.V2_SWAP_EXACT_OUT,
+            recipient,
+            amount,
+            amount_min,
+            path,
+            payer_is_user,
+            allow_revert=allow_revert,
+        )
+
+    def wrap_eth(self, recipient: str, amount_min: int):
+        self.add(Command.WRAP_ETH, recipient, amount_min)
+
+    def unwrap_weth(self, recipient: str, amount_min: int):
+        self.add(Command.UNWRAP_WETH, recipient, amount_min)
+
+    def balance_check_erc20(self, owner: str, token: str, min_balance: int):
+        self.add(Command.BALANCE_CHECK_ERC20, owner, token, min_balance)
+
+    def seaport_v1_5(self, value: int, data: bytes, allow_revert=False):
+        self.add(Command.SEAPORT_V1_5, value, data, allow_revert=allow_revert)
+
+    def seaport_v1_4(self, value: int, data: bytes, allow_revert=False):
+        self.add(Command.SEAPORT_V1_4, value, data, allow_revert=allow_revert)
+
+    def looks_rare_v2(self, value: int, data: bytes, allow_revert=False):
+        self.add(Command.LOOKS_RARE_V2, value, data, allow_revert=allow_revert)
+
+    def nftx(self, value: int, data: bytes, allow_revert=False):
+        self.add(Command.NFTX, value, data, allow_revert=allow_revert)
+
+    def element_market(self, value: int, data: bytes, allow_revert=False):
+        self.add(Command.ELEMENT_MARKET, value, data, allow_revert=allow_revert)
+
+    def sudoswap(self, value: int, data: bytes, allow_revert=False):
+        self.add(Command.SUDOSWAP, value, data, allow_revert=allow_revert)
+
+    def nft20(self, value: int, data: bytes, allow_revert=False):
+        self.add(Command.NFT20, value, data, allow_revert=allow_revert)
+
+    def cryptopunks(self, punk_id: int, recipient: str, value: int, allow_revert=False):
+        self.add(Command.CRYPTOPUNKS, punk_id, recipient, value, allow_revert=allow_revert)
+
+    def owner_check_721(self, owner: str, token: str, id: int):
+        self.add(Command.OWNER_CHECK_721, owner, token, id)
+
+    def owner_check_1155(self, owner: str, token: str, id: int, min_balance: int):
+        self.add(Command.OWNER_CHECK_1155, owner, token, id, min_balance)
+
+    def sweep_erc721(self, token: str, recipient: str, id: int):
+        self.add(Command.SWEEP_ERC721, token, recipient, id)
+
+    def x2y2_721(
+        self, value: int, data: bytes, recipient: str, token: str, id: int, allow_revert=False
+    ):
+        self.add(Command.X2Y2_721, value, data, recipient, token, id, allow_revert=allow_revert)
+
+    def x2y2_1155(
+        self,
+        value: int,
+        data: bytes,
+        recipient: str,
+        token: str,
+        id: int,
+        amount: int,
+        allow_revert=False,
+    ):
+        self.add(
+            Command.X2Y2_1155, value, data, recipient, token, id, amount, allow_revert=allow_revert
+        )
+
+    def foundation(
+        self, value: int, data: bytes, recipient: str, token: str, id: int, allow_revert=False
+    ):
+        self.add(Command.FOUNDATION, value, data, recipient, token, id, allow_revert=allow_revert)
+
+    def sweep_erc1155(self, token: str, recipient: str, id: int, amount: int):
+        self.add(Command.SWEEP_ERC1155, token, recipient, id, amount)
+
+    def execute_sub_plan(self, commands: bytes, inputs: list[bytes], allow_revert=False):
+        self.add(Command.EXECUTE_SUB_PLAN, commands, inputs, allow_revert=allow_revert)
+
+    def approve_erc20(self, token: str, spender: int):
+        self.add(Command.APPROVE_ERC20, token, spender)
