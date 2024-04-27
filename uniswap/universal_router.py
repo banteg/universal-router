@@ -3,15 +3,15 @@ from itertools import cycle
 
 from eth_abi import encode
 from eth_abi.packed import encode_packed
-from typing import NamedTuple, TypedDict
+from typing import Any, NamedTuple, TypedDict
 
 from numpy import isin
-from pydantic import TypeAdapter
+from pydantic import BaseModel, TypeAdapter
 
 
-class Commands(IntEnum):
+class Command(IntEnum):
     """
-    @dev see https://github.com/Uniswap/universal-router/blob/main/contracts/libraries/Commands.sol
+    @dev see https://github.com/Uniswap/universal-router/blob/main/contracts/libraries/Command.sol
     """
 
     # Masks to extract certain bits of commands
@@ -83,6 +83,22 @@ class Commands(IntEnum):
     # COMMAND_PLACEHOLDER for 0x23 to 0x3f (all unused)
 
 
+REVERTIBLE_COMMANDS = [
+    CommandType.SEAPORT_V1_5,
+    CommandType.SEAPORT_V1_4,
+    CommandType.NFTX,
+    CommandType.LOOKS_RARE_V2,
+    CommandType.X2Y2_721,
+    CommandType.X2Y2_1155,
+    CommandType.FOUNDATION,
+    CommandType.SUDOSWAP,
+    CommandType.NFT20,
+    CommandType.EXECUTE_SUB_PLAN,
+    CommandType.CRYPTOPUNKS,
+    CommandType.ELEMENT_MARKET,
+]
+
+
 # some structs ported from
 # https://github.com/Uniswap/permit2/blob/main/src/interfaces/IAllowanceTransfer.sol#L45
 class PermitDetails(NamedTuple):
@@ -122,12 +138,12 @@ def encode_path(path: list) -> bytes:
     return encode_packed(types, path)
 
 
-def encode_command(command: Commands, *args) -> bytes:
+def encode_command(command: Command, *args) -> bytes:
     """
     @dev see https://github.com/Uniswap/universal-router/blob/main/contracts/base/Dispatcher.sol#L41
     """
     match command, args:
-        case Commands.V3_SWAP_EXACT_IN | Commands.V3_SWAP_EXACT_OUT, [
+        case Command.V3_SWAP_EXACT_IN | Command.V3_SWAP_EXACT_OUT, [
             str(recipient),
             int(amount),
             int(amount_min),
@@ -141,18 +157,18 @@ def encode_command(command: Commands, *args) -> bytes:
                 ["address", "uint256", "uint256", "bytes", "bool"],
                 [recipient, amount, amount_min, path, payer_is_user],
             )
-        case Commands.PERMIT2_TRANSFER_FROM, (str(token), str(recipient), int(amount)):
+        case Command.PERMIT2_TRANSFER_FROM, (str(token), str(recipient), int(amount)):
             return encode(
                 ["address", "address", "uint160"],
                 [token, recipient, amount],
             )
-        case Commands.PERMIT2_TRANSFER_FROM_BATCH, [list(batch_details)]:
+        case Command.PERMIT2_TRANSFER_FROM_BATCH, [list(batch_details)]:
             batch_details = transfer_from_batch_adapter.validate_python(batch_details)
             return encode(
                 ["(address,address,uint160,address)[]"],
                 [batch_details],
             )
-        case Commands.PERMIT2_PERMIT, (
+        case Command.PERMIT2_PERMIT, (
             dict(permit_single)
             | list(permit_single)
             | tuple(permit_single),
@@ -163,7 +179,7 @@ def encode_command(command: Commands, *args) -> bytes:
                 ["((address,uint160,uint48,uint48),address,uint256)", "bytes"],  # noqa: E501
                 [permit_single, data],
             )
-        case Commands.PERMIT2_PERMIT_BATCH, (
+        case Command.PERMIT2_PERMIT_BATCH, (
             dict(permit_batch)
             | list(permit_batch)
             | tuple(permit_batch),
@@ -174,22 +190,22 @@ def encode_command(command: Commands, *args) -> bytes:
                 ["((address,uint160,uint48,uint48)[],address,uint256)", "bytes"],  # noqa: E501
                 [permit_batch, data],
             )
-        case Commands.SWEEP, (str(token), str(recipient), int(amount_min)):
+        case Command.SWEEP, (str(token), str(recipient), int(amount_min)):
             return encode(
                 ["address", "address", "uint256"],
                 [token, recipient, amount_min],
             )
-        case Commands.TRANSFER, (str(token), str(recipient), int(amount)):
+        case Command.TRANSFER, (str(token), str(recipient), int(amount)):
             return encode(
                 ["address", "address", "uint256"],
                 [token, recipient, amount],
             )
-        case Commands.PAY_PORTION, (str(token), str(recipient), int(bips)):
+        case Command.PAY_PORTION, (str(token), str(recipient), int(bips)):
             return encode(
                 ["address", "address", "uint256"],
                 [token, recipient, bips],
             )
-        case Commands.V2_SWAP_EXACT_IN | Commands.V2_SWAP_EXACT_OUT, (
+        case Command.V2_SWAP_EXACT_IN | Command.V2_SWAP_EXACT_OUT, (
             str(recipient),
             int(amount),
             int(amount_min),
@@ -200,29 +216,29 @@ def encode_command(command: Commands, *args) -> bytes:
                 ["address", "uint256", "uint256", "address[]", "bool"],
                 [recipient, amount, amount_min, path, payer_is_user],
             )
-        case Commands.WRAP_ETH, (str(recipient), int(amount_min)):
+        case Command.WRAP_ETH, (str(recipient), int(amount_min)):
             return encode(
                 ["address", "uint256"],
                 [recipient, amount_min],
             )
-        case Commands.UNWRAP_WETH, (str(recipient), int(amount_min)):
+        case Command.UNWRAP_WETH, (str(recipient), int(amount_min)):
             return encode(
                 ["address", "uint256"],
                 [recipient, amount_min],
             )
-        case Commands.BALANCE_CHECK_ERC20, (str(owner), str(token), int(min_balance)):
+        case Command.BALANCE_CHECK_ERC20, (str(owner), str(token), int(min_balance)):
             return encode(
                 ["address", "address", "uint256"],
                 [owner, token, min_balance],
             )
         case (
-            Commands.SEAPORT_V1_5
-            | Commands.SEAPORT_V1_4
-            | Commands.LOOKS_RARE_V2
-            | Commands.NFTX
-            | Commands.ELEMENT_MARKET
-            | Commands.SUDOSWAP
-            | Commands.NFT20,
+            Command.SEAPORT_V1_5
+            | Command.SEAPORT_V1_4
+            | Command.LOOKS_RARE_V2
+            | Command.NFTX
+            | Command.ELEMENT_MARKET
+            | Command.SUDOSWAP
+            | Command.NFT20,
             (
                 int(value),
                 bytes(data),
@@ -233,32 +249,32 @@ def encode_command(command: Commands, *args) -> bytes:
                 ["uint256", "bytes"],
                 [value, data],
             )
-        case Commands.CRYPTOPUNKS, (int(punk_id), str(recipient), int(value)):
+        case Command.CRYPTOPUNKS, (int(punk_id), str(recipient), int(value)):
             return encode(
                 ["uint256", "address", "uint256"],
                 [punk_id, recipient, value],
             )
-        case Commands.OWNER_CHECK_721, (str(owner), str(token), int(id)):
+        case Command.OWNER_CHECK_721, (str(owner), str(token), int(id)):
             return encode(
                 ["address", "address", "uint256"],
                 [owner, token, id],
             )
-        case Commands.OWNER_CHECK_1155, (str(owner), str(token), int(id), int(min_balance)):
+        case Command.OWNER_CHECK_1155, (str(owner), str(token), int(id), int(min_balance)):
             return encode(
                 ["address", "address", "uint256", "uint256"],
                 [owner, token, id, min_balance],
             )
-        case Commands.SWEEP_ERC721, (str(token), str(recipient), int(id)):
+        case Command.SWEEP_ERC721, (str(token), str(recipient), int(id)):
             return encode(
                 ["address", "address", "uint256"],
                 [token, recipient, id],
             )
-        case Commands.X2Y2_721, (int(value), bytes(data), str(recipient), str(token), int(id)):
+        case Command.X2Y2_721, (int(value), bytes(data), str(recipient), str(token), int(id)):
             return encode(
                 ["uint256", "bytes", "address", "address", "uint256"],
                 [value, data, recipient, token, id],
             )
-        case Commands.X2Y2_1155, (
+        case Command.X2Y2_1155, (
             int(value),
             bytes(data),
             str(recipient),
@@ -270,22 +286,22 @@ def encode_command(command: Commands, *args) -> bytes:
                 ["uint256", "bytes", "address", "address", "uint256", "uint256"],
                 [value, data, recipient, token, id, amount],
             )
-        case Commands.FOUNDATION, (int(value), bytes(data), str(recipient), str(token), int(id)):
+        case Command.FOUNDATION, (int(value), bytes(data), str(recipient), str(token), int(id)):
             return encode(
                 ["uint256", "bytes", "address", "address", "uint256"],
                 [value, data, recipient, token, id],
             )
-        case Commands.SWEEP_ERC1155, (str(token), str(recipient), int(id), int(amount)):
+        case Command.SWEEP_ERC1155, (str(token), str(recipient), int(id), int(amount)):
             return encode(
                 ["address", "address", "uint256", "uint256"],
                 [token, recipient, id, amount],
             )
-        case Commands.EXECUTE_SUB_PLAN, (bytes(commands), list(inputs)):
+        case Command.EXECUTE_SUB_PLAN, (bytes(commands), list(inputs)):
             return encode(
                 ["bytes", "bytes[]"],
                 [commands, inputs],
             )
-        case Commands.APPROVE_ERC20, (str(token), int(spender)):
+        case Command.APPROVE_ERC20, (str(token), int(spender)):
             return encode(
                 ["address", "uint8"],
                 [token, spender],

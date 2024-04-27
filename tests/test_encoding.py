@@ -1,6 +1,6 @@
 import pytest
 
-from uniswap.universal_router import Commands, encode_command
+from uniswap.universal_router import Command, encode_command
 
 dev = "0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266"
 weth = "0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2"
@@ -45,24 +45,24 @@ reference = {key: bytes.fromhex(value) for key, value in reference.items()}
     "payload",
     [
         {
-            "command": Commands.V3_SWAP_EXACT_IN,
+            "command": Command.V3_SWAP_EXACT_IN,
             "path": [weth, fee, yfi],
             "encoded": reference["v3_swap"],
         },
         {
-            "command": Commands.V3_SWAP_EXACT_IN,
+            "command": Command.V3_SWAP_EXACT_IN,
             "path": bytes.fromhex(
                 "c02aaa39b223fe8d0a0e5c4f27ead9083c756cc20027100bc529c00c6401aef6d220be8c6ea1667f6ad93e"
             ),
             "encoded": reference["v3_swap"],
         },
         {
-            "command": Commands.V3_SWAP_EXACT_OUT,
+            "command": Command.V3_SWAP_EXACT_OUT,
             "path": [weth, fee, yfi],
             "encoded": reference["v3_swap"],
         },
         {
-            "command": Commands.V3_SWAP_EXACT_OUT,
+            "command": Command.V3_SWAP_EXACT_OUT,
             "path": bytes.fromhex(
                 "c02aaa39b223fe8d0a0e5c4f27ead9083c756cc20027100bc529c00c6401aef6d220be8c6ea1667f6ad93e"
             ),
@@ -78,7 +78,7 @@ def test_encode_swap(payload):
 
 
 def test_encode_permit_transfer_from():
-    assert encode_command(Commands.PERMIT2_TRANSFER_FROM, yfi, dev, amount) == reference["transfer"]
+    assert encode_command(Command.PERMIT2_TRANSFER_FROM, yfi, dev, amount) == reference["transfer"]
 
 
 @pytest.mark.parametrize(
@@ -97,27 +97,27 @@ def test_encode_permit_transfer_from():
 )
 def test_encode_permit2_permit_batch(permit_batch):
     assert (
-        encode_command(Commands.PERMIT2_PERMIT_BATCH, permit_batch, data)
+        encode_command(Command.PERMIT2_PERMIT_BATCH, permit_batch, data)
         == reference["permit2_batch"]
     )
 
 
 def test_encode_sweep():
-    assert encode_command(Commands.SWEEP, yfi, dev, amount_min) == reference["sweep"]
+    assert encode_command(Command.SWEEP, yfi, dev, amount_min) == reference["sweep"]
 
 
 def test_encode_transfer():
-    assert encode_command(Commands.TRANSFER, yfi, dev, amount) == reference["transfer"]
+    assert encode_command(Command.TRANSFER, yfi, dev, amount) == reference["transfer"]
 
 
 def test_encode_pay_portion():
-    assert encode_command(Commands.PAY_PORTION, yfi, dev, bips) == reference["pay_portion"]
+    assert encode_command(Command.PAY_PORTION, yfi, dev, bips) == reference["pay_portion"]
 
 
 def test_encode_v2_swap_exact_in():
     assert (
         encode_command(
-            Commands.V2_SWAP_EXACT_IN, dev, amount, amount_min, [weth, yfi], payer_is_user
+            Command.V2_SWAP_EXACT_IN, dev, amount, amount_min, [weth, yfi], payer_is_user
         )
         == reference["v2_swap"]
     )
@@ -126,7 +126,7 @@ def test_encode_v2_swap_exact_in():
 def test_encode_v2_swap_exact_out():
     assert (
         encode_command(
-            Commands.V2_SWAP_EXACT_OUT, dev, amount, amount_min, [weth, yfi], payer_is_user
+            Command.V2_SWAP_EXACT_OUT, dev, amount, amount_min, [weth, yfi], payer_is_user
         )
         == reference["v2_swap"]
     )
@@ -145,16 +145,16 @@ def test_encode_v2_swap_exact_out():
 )
 def test_encode_permit2_permit(permit_single):
     assert (
-        encode_command(Commands.PERMIT2_PERMIT, permit_single, data) == reference["permit2_single"]
+        encode_command(Command.PERMIT2_PERMIT, permit_single, data) == reference["permit2_single"]
     )
 
 
 def test_encode_wrap_eth():
-    assert encode_command(Commands.WRAP_ETH, dev, amount) == reference["wrap_eth"]
+    assert encode_command(Command.WRAP_ETH, dev, amount) == reference["wrap_eth"]
 
 
 def test_encode_unwrap_weth():
-    assert encode_command(Commands.UNWRAP_WETH, dev, amount) == reference["wrap_eth"]
+    assert encode_command(Command.UNWRAP_WETH, dev, amount) == reference["wrap_eth"]
 
 
 @pytest.mark.parametrize(
@@ -166,98 +166,97 @@ def test_encode_unwrap_weth():
 )
 def test_encode_permit2_transfer_from_batch(batch_details):
     assert (
-        encode_command(Commands.PERMIT2_TRANSFER_FROM_BATCH, batch_details)
+        encode_command(Command.PERMIT2_TRANSFER_FROM_BATCH, batch_details)
         == reference["permit2_batch_transfer"]
     )
 
 
 def test_encode_balance_check_erc20():
     assert (
-        encode_command(Commands.BALANCE_CHECK_ERC20, dev, yfi, amount) == reference["balance_check"]
+        encode_command(Command.BALANCE_CHECK_ERC20, dev, yfi, amount) == reference["balance_check"]
     )
 
 
 def test_encode_seaport_v1_5():
-    assert encode_command(Commands.SEAPORT_V1_5, amount, data) == reference["nft_swap_mock"]
+    assert encode_command(Command.SEAPORT_V1_5, amount, data) == reference["nft_swap_mock"]
 
 
 def test_encode_looks_rare_v2():
-    assert encode_command(Commands.LOOKS_RARE_V2, amount, data) == reference["nft_swap_mock"]
+    assert encode_command(Command.LOOKS_RARE_V2, amount, data) == reference["nft_swap_mock"]
 
 
 def test_encode_nftx():
-    assert encode_command(Commands.NFTX, amount, data) == reference["nft_swap_mock"]
+    assert encode_command(Command.NFTX, amount, data) == reference["nft_swap_mock"]
 
 
 def test_encode_cryptopunks():
-    assert encode_command(Commands.CRYPTOPUNKS, token_id, dev, amount) == reference["buy_punk"]
+    assert encode_command(Command.CRYPTOPUNKS, token_id, dev, amount) == reference["buy_punk"]
 
 
 def test_encode_owner_check_721():
-    assert encode_command(Commands.OWNER_CHECK_721, dev, yfi, token_id) == reference["owner_721"]
+    assert encode_command(Command.OWNER_CHECK_721, dev, yfi, token_id) == reference["owner_721"]
 
 
 def test_encode_owner_check_1155():
     assert (
-        encode_command(Commands.OWNER_CHECK_1155, dev, yfi, token_id, 1) == reference["owner_1155"]
+        encode_command(Command.OWNER_CHECK_1155, dev, yfi, token_id, 1) == reference["owner_1155"]
     )
 
 
 def test_encode_sweep_erc721():
-    assert encode_command(Commands.SWEEP_ERC721, yfi, dev, token_id) == reference["sweep_721"]
+    assert encode_command(Command.SWEEP_ERC721, yfi, dev, token_id) == reference["sweep_721"]
 
 
 def test_encode_x2y2_721():
     assert (
-        encode_command(Commands.X2Y2_721, value, data, dev, yfi, token_id) == reference["x2y2_721"]
+        encode_command(Command.X2Y2_721, value, data, dev, yfi, token_id) == reference["x2y2_721"]
     )
 
 
 def test_encode_sudoswap():
-    assert encode_command(Commands.SUDOSWAP, value, data) == reference["nft_swap_mock"]
+    assert encode_command(Command.SUDOSWAP, value, data) == reference["nft_swap_mock"]
 
 
 def test_encode_nft20():
-    assert encode_command(Commands.NFT20, value, data) == reference["nft_swap_mock"]
+    assert encode_command(Command.NFT20, value, data) == reference["nft_swap_mock"]
 
 
 def test_encode_x2y2_1155():
     assert (
-        encode_command(Commands.X2Y2_1155, value, data, dev, yfi, token_id, amount)
+        encode_command(Command.X2Y2_1155, value, data, dev, yfi, token_id, amount)
         == reference["x2y2_1155"]
     )
 
 
 def test_encode_foundation():
     assert (
-        encode_command(Commands.FOUNDATION, value, data, dev, yfi, token_id)
+        encode_command(Command.FOUNDATION, value, data, dev, yfi, token_id)
         == reference["foundation"]
     )
 
 
 def test_encode_sweep_erc1155():
     assert (
-        encode_command(Commands.SWEEP_ERC1155, yfi, dev, token_id, amount)
-        == reference["sweep_1155"]
+        encode_command(Command.SWEEP_ERC1155, yfi, dev, token_id, amount) == reference["sweep_1155"]
     )
 
 
 def test_encode_element_market():
-    assert encode_command(Commands.ELEMENT_MARKET, value, data) == reference["nft_swap_mock"]
+    assert encode_command(Command.ELEMENT_MARKET, value, data) == reference["nft_swap_mock"]
 
 
 def test_encode_seaport_v1_4():
-    assert encode_command(Commands.SEAPORT_V1_4, value, data) == reference["nft_swap_mock"]
+    assert encode_command(Command.SEAPORT_V1_4, value, data) == reference["nft_swap_mock"]
 
 
 def test_encode_execute_sub_plan():
-    commands = bytes([Commands.WRAP_ETH, Commands.UNWRAP_WETH])
+    commands = bytes([Command.WRAP_ETH, Command.UNWRAP_WETH])
     inputs = [
-        encode_command(Commands.WRAP_ETH, dev, amount),
-        encode_command(Commands.UNWRAP_WETH, dev, amount),
+        encode_command(Command.WRAP_ETH, dev, amount),
+        encode_command(Command.UNWRAP_WETH, dev, amount),
     ]
-    assert encode_command(Commands.EXECUTE_SUB_PLAN, commands, inputs) == reference["subplan"]
+    assert encode_command(Command.EXECUTE_SUB_PLAN, commands, inputs) == reference["subplan"]
 
 
 def test_encode_approve_erc20():
-    assert encode_command(Commands.APPROVE_ERC20, yfi, 1) == reference["approve_erc20"]
+    assert encode_command(Command.APPROVE_ERC20, yfi, 1) == reference["approve_erc20"]
