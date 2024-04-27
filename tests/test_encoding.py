@@ -11,6 +11,8 @@ value = amount
 amount_min = 1234
 bips = 100
 token_id = 1234
+deadline = 2**42
+nonce = 1
 payer_is_user = False
 data = b"hentai is art"
 reference = {
@@ -28,6 +30,9 @@ reference = {
     "sweep_721": "0000000000000000000000000bc529c00c6401aef6d220be8c6ea1667f6ad93e000000000000000000000000f39fd6e51aad88f6f4ce6ab8827279cfffb9226600000000000000000000000000000000000000000000000000000000000004d2",
     "sweep_1155": "0000000000000000000000000bc529c00c6401aef6d220be8c6ea1667f6ad93e000000000000000000000000f39fd6e51aad88f6f4ce6ab8827279cfffb9226600000000000000000000000000000000000000000000000000000000000004d20000000000000000000000000000000000000000000000000de0b6b3a7640000",
     "approve_erc20": "0000000000000000000000000bc529c00c6401aef6d220be8c6ea1667f6ad93e0000000000000000000000000000000000000000000000000000000000000001",
+    "permit2_batch": "000000000000000000000000000000000000000000000000000000000000004000000000000000000000000000000000000000000000000000000000000001400000000000000000000000000000000000000000000000000000000000000060000000000000000000000000f39fd6e51aad88f6f4ce6ab8827279cfffb92266000000000000000000000000000000000000000000000000000004000000000000000000000000000000000000000000000000000000000000000000000000010000000000000000000000000bc529c00c6401aef6d220be8c6ea1667f6ad93e0000000000000000000000000000000000000000000000000de0b6b3a764000000000000000000000000000000000000000000000000000000000400000000000000000000000000000000000000000000000000000000000000000000000001000000000000000000000000000000000000000000000000000000000000000d68656e7461692069732061727400000000000000000000000000000000000000",
+    "permit2_single": "0000000000000000000000000bc529c00c6401aef6d220be8c6ea1667f6ad93e0000000000000000000000000000000000000000000000000de0b6b3a764000000000000000000000000000000000000000000000000000000000400000000000000000000000000000000000000000000000000000000000000000000000001000000000000000000000000f39fd6e51aad88f6f4ce6ab8827279cfffb92266000000000000000000000000000000000000000000000000000004000000000000000000000000000000000000000000000000000000000000000000000000e0000000000000000000000000000000000000000000000000000000000000000d68656e7461692069732061727400000000000000000000000000000000000000",
+    "permit2_batch_transfer": "00000000000000000000000000000000000000000000000000000000000000200000000000000000000000000000000000000000000000000000000000000001000000000000000000000000f39fd6e51aad88f6f4ce6ab8827279cfffb92266000000000000000000000000f39fd6e51aad88f6f4ce6ab8827279cfffb922660000000000000000000000000000000000000000000000000de0b6b3a76400000000000000000000000000000bc529c00c6401aef6d220be8c6ea1667f6ad93e",
 }
 reference = {key: bytes.fromhex(value) for key, value in reference.items()}
 
@@ -72,11 +77,25 @@ def test_encode_permit_transfer_from():
     assert encode_command(Commands.PERMIT2_TRANSFER_FROM, yfi, dev, amount) == reference["transfer"]
 
 
-def test_encode_permit2_permit_batch():
-    permit_batch = {...}  # Placeholder for the permit_batch dictionary
-    data = b"..."  # Placeholder for the data bytes
-    encoded_data = encode_command(Commands.PERMIT2_PERMIT_BATCH, permit_batch, data)
-    assert encoded_data == b"..."  # Placeholder for the expected encoded data
+@pytest.mark.parametrize(
+    "permit_batch",
+    [
+        {
+            "details": [
+                {"token": yfi, "amount": amount, "expiration": deadline, "nonce": nonce},
+            ],
+            "spender": dev,
+            "sigDeadline": deadline,
+        },
+        [[(yfi, amount, deadline, nonce)], dev, deadline],
+        ([(yfi, amount, deadline, nonce)], dev, deadline),
+    ],
+)
+def test_encode_permit2_permit_batch(permit_batch):
+    assert (
+        encode_command(Commands.PERMIT2_PERMIT_BATCH, permit_batch, data)
+        == reference["permit2_batch"]
+    )
 
 
 def test_encode_sweep():
@@ -109,11 +128,21 @@ def test_encode_v2_swap_exact_out():
     )
 
 
-def test_encode_permit2_permit():
-    permit_single = {...}  # Placeholder for the permit_single dictionary
-    data = b"..."  # Placeholder for the data bytes
-    encoded_data = encode_command(Commands.PERMIT2_PERMIT, permit_single, data)
-    assert encoded_data == b"..."  # Placeholder for the expected encoded data
+@pytest.mark.parametrize(
+    "permit_single",
+    [
+        {
+            "details": {"token": yfi, "amount": amount, "expiration": deadline, "nonce": nonce},
+            "spender": dev,
+            "sigDeadline": deadline,
+        },
+        [(yfi, amount, deadline, nonce), dev, deadline],
+    ],
+)
+def test_encode_permit2_permit(permit_single):
+    assert (
+        encode_command(Commands.PERMIT2_PERMIT, permit_single, data) == reference["permit2_single"]
+    )
 
 
 def test_encode_wrap_eth():
@@ -124,10 +153,18 @@ def test_encode_unwrap_weth():
     assert encode_command(Commands.UNWRAP_WETH, dev, amount) == reference["wrap_eth"]
 
 
-def test_encode_permit2_transfer_from_batch():
-    batch_details = [...]  # Placeholder for the batch_details list
-    data = encode_command(Commands.PERMIT2_TRANSFER_FROM_BATCH, batch_details)
-    assert data == b"..."  # Placeholder for the expected encoded data
+@pytest.mark.parametrize(
+    "batch_details",
+    [
+        [{"owner": dev, "to": dev, "amount": amount, "token": yfi}],
+        [(dev, dev, amount, yfi)],
+    ],
+)
+def test_encode_permit2_transfer_from_batch(batch_details):
+    assert (
+        encode_command(Commands.PERMIT2_TRANSFER_FROM_BATCH, batch_details)
+        == reference["permit2_batch_transfer"]
+    )
 
 
 def test_encode_balance_check_erc20():
