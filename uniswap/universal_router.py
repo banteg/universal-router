@@ -84,35 +84,23 @@ def encode_path(path: list) -> bytes:
     return encode_packed(types, path)
 
 
-def encode_command(command: Commands, *args):
+def encode_command(command: Commands, *args) -> tuple[Commands, bytes]:
     match command, args:
-        case Commands.V3_SWAP_EXACT_IN, (
+        case Commands.V3_SWAP_EXACT_IN | Commands.V3_SWAP_EXACT_OUT, (
             str(recipient),
-            int(amount_in),
-            int(amount_out_min),
-            bytes(path),
+            int(amount),
+            int(amount_min),
+            list(path)
+            | bytes(path),
             bool(payer_is_user),
         ):
+            if isinstance(path, list):
+                path = encode_path(path)
             return (
-                Commands.V3_SWAP_EXACT_IN,
+                command,
                 encode(
                     ["address", "uint256", "uint256", "bytes", "bool"],
-                    [recipient, amount_in, amount_out_min, path, payer_is_user],
-                ),
-            )
-        case Commands.V3_SWAP_EXACT_IN, (
-            str(recipient),
-            int(amount_in),
-            int(amount_out_min),
-            list(path),
-            bool(payer_is_user),
-        ):
-            path = encode_path(path)
-            return (
-                Commands.V3_SWAP_EXACT_IN,
-                encode(
-                    ["address", "uint256", "uint256", "bytes", "bool"],
-                    [recipient, amount_in, amount_out_min, path, payer_is_user],
+                    [recipient, amount, amount_min, path, payer_is_user],
                 ),
             )
         case _:
