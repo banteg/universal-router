@@ -170,17 +170,20 @@ def encode_command(command: Commands, *args) -> bytes:
                 ["address", "address", "uint256"],
                 [owner, token, min_balance],
             )
-        case Commands.SEAPORT_V1_5, (int(value), bytes(data)):
-            return encode(
-                ["uint256", "bytes"],
-                [value, data],
-            )
-        case Commands.LOOKS_RARE_V2, (int(value), bytes(data)):
-            return encode(
-                ["uint256", "bytes"],
-                [value, data],
-            )
-        case Commands.NFTX, (int(value), bytes(data)):
+        case (
+            Commands.SEAPORT_V1_5
+            | Commands.SEAPORT_V1_4
+            | Commands.LOOKS_RARE_V2
+            | Commands.NFTX
+            | Commands.ELEMENT_MARKET
+            | Commands.SUDOSWAP
+            | Commands.NFT20,
+            (
+                int(value),
+                bytes(data),
+            ),
+        ):
+            # TODO nft order encoding
             return encode(
                 ["uint256", "bytes"],
                 [value, data],
@@ -210,16 +213,6 @@ def encode_command(command: Commands, *args) -> bytes:
                 ["uint256", "bytes", "address", "address", "uint256"],
                 [value, data, recipient, token, id],
             )
-        case Commands.SUDOSWAP, (int(value), bytes(data)):
-            return encode(
-                ["uint256", "bytes"],
-                [value, data],
-            )
-        case Commands.NFT20, (int(value), bytes(data)):
-            return encode(
-                ["uint256", "bytes"],
-                [value, data],
-            )
         case Commands.X2Y2_1155, (
             int(value),
             bytes(data),
@@ -241,16 +234,6 @@ def encode_command(command: Commands, *args) -> bytes:
             return encode(
                 ["address", "address", "uint256", "uint256"],
                 [token, recipient, id, amount],
-            )
-        case Commands.ELEMENT_MARKET, (int(value), bytes(data)):
-            return encode(
-                ["uint256", "bytes"],
-                [value, data],
-            )
-        case Commands.SEAPORT_V1_4, (int(value), bytes(data)):
-            return encode(
-                ["uint256", "bytes"],
-                [value, data],
             )
         case Commands.EXECUTE_SUB_PLAN, (bytes(commands), list(inputs)):
             return encode(
