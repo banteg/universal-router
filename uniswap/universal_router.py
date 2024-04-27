@@ -1,18 +1,14 @@
 from enum import IntEnum
 from itertools import cycle
+from typing import NamedTuple
 
 from eth_abi import encode
 from eth_abi.packed import encode_packed
-from typing import Any, NamedTuple, TypedDict
-
-from numpy import isin
 from pydantic import BaseModel, TypeAdapter
 
 
 class Command(IntEnum):
-    """
-    @dev see https://github.com/Uniswap/universal-router/blob/main/contracts/libraries/Command.sol
-    """
+    # https://github.com/Uniswap/universal-router/blob/main/contracts/libraries/Command.sol
 
     # Masks to extract certain bits of commands
     FLAG_ALLOW_REVERT = 0x80
@@ -139,9 +135,7 @@ def encode_path(path: list) -> bytes:
 
 
 def encode_command(command: Command, *args) -> bytes:
-    """
-    @dev see https://github.com/Uniswap/universal-router/blob/main/contracts/base/Dispatcher.sol#L41
-    """
+    # https://github.com/Uniswap/universal-router/blob/main/contracts/base/Dispatcher.sol#L41
     match command, args:
         case Command.V3_SWAP_EXACT_IN | Command.V3_SWAP_EXACT_OUT, [
             str(recipient),
