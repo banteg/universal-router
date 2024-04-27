@@ -3,6 +3,10 @@ from itertools import cycle
 
 from eth_abi import encode
 from eth_abi.packed import encode_packed
+from typing import NamedTuple, TypedDict
+
+from numpy import isin
+from pydantic import TypeAdapter
 
 
 class Commands(IntEnum):
@@ -79,6 +83,40 @@ class Commands(IntEnum):
     # COMMAND_PLACEHOLDER for 0x23 to 0x3f (all unused)
 
 
+# some structs ported from
+# https://github.com/Uniswap/permit2/blob/main/src/interfaces/IAllowanceTransfer.sol#L45
+class PermitDetails(NamedTuple):
+    token: str
+    amount: int
+    expiration: int
+    nonce: int
+
+
+class PermitSingle(NamedTuple):
+    details: PermitDetails
+    spender: str
+    sigDeadline: int
+
+
+class PermitBatch(NamedTuple):
+    details: list[PermitDetails]
+    spender: str
+    sigDeadline: int
+
+
+class AllowanceTransferDetails(NamedTuple):
+    owner: str
+    to: str
+    amount: int
+    token: str
+
+
+# use pydantic type adapter to do nested casting so you can pass as dict
+permit_batch_adapter = TypeAdapter(PermitBatch)
+permit_single_adapter = TypeAdapter(PermitSingle)
+transfer_from_batch_adapter = TypeAdapter(list[AllowanceTransferDetails])
+
+
 def encode_path(path: list) -> bytes:
     types = [type for _, type in zip(path, cycle(["address", "uint24"]))]
     return encode_packed(types, path)
@@ -89,14 +127,14 @@ def encode_command(command: Commands, *args) -> bytes:
     @dev see https://github.com/Uniswap/universal-router/blob/main/contracts/base/Dispatcher.sol#L41
     """
     match command, args:
-        case Commands.V3_SWAP_EXACT_IN | Commands.V3_SWAP_EXACT_OUT, (
+        case Commands.V3_SWAP_EXACT_IN | Commands.V3_SWAP_EXACT_OUT, [
             str(recipient),
             int(amount),
             int(amount_min),
             list(path)
             | bytes(path),
             bool(payer_is_user),
-        ):
+        ]:
             if isinstance(path, list):
                 path = encode_path(path)
             return encode(
@@ -108,12 +146,32 @@ def encode_command(command: Commands, *args) -> bytes:
                 ["address", "address", "uint160"],
                 [token, recipient, amount],
             )
-        case Commands.PERMIT2_PERMIT_BATCH, (dict(permit_batch), bytes(data)):
+        case Commands.PERMIT2_TRANSFER_FROM_BATCH, [list(batch_details)]:
+            batch_details = transfer_from_batch_adapter.validate_python(batch_details)
             return encode(
-                [
-                    "(address token,uint256 amount,uint256 expiration,uint256 nonce,uint256 allowed)[]",
-                    "bytes",
-                ],
+                ["(address,address,uint160,address)[]"],
+                [batch_details],
+            )
+        case Commands.PERMIT2_PERMIT, (
+            dict(permit_single)
+            | list(permit_single)
+            | tuple(permit_single),
+            bytes(data),
+        ):
+            permit_single = permit_single_adapter.validate_python(permit_single)
+            return encode(
+                ["((address,uint160,uint48,uint48),address,uint256)", "bytes"],  # noqa: E501
+                [permit_single, data],
+            )
+        case Commands.PERMIT2_PERMIT_BATCH, (
+            dict(permit_batch)
+            | list(permit_batch)
+            | tuple(permit_batch),
+            bytes(data),
+        ):
+            permit_batch = permit_batch_adapter.validate_python(permit_batch)
+            return encode(
+                ["((address,uint160,uint48,uint48)[],address,uint256)", "bytes"],  # noqa: E501
                 [permit_batch, data],
             )
         case Commands.SWEEP, (str(token), str(recipient), int(amount_min)):
@@ -142,14 +200,6 @@ def encode_command(command: Commands, *args) -> bytes:
                 ["address", "uint256", "uint256", "address[]", "bool"],
                 [recipient, amount, amount_min, path, payer_is_user],
             )
-        case Commands.PERMIT2_PERMIT, (dict(permit_single), bytes(data)):
-            return encode(
-                [
-                    "(address token,uint256 amount,uint256 expiration,address spender,uint256 nonce,uint256 allowed)",
-                    "bytes",
-                ],
-                [permit_single, data],
-            )
         case Commands.WRAP_ETH, (str(recipient), int(amount_min)):
             return encode(
                 ["address", "uint256"],
@@ -159,11 +209,6 @@ def encode_command(command: Commands, *args) -> bytes:
             return encode(
                 ["address", "uint256"],
                 [recipient, amount_min],
-            )
-        case Commands.PERMIT2_TRANSFER_FROM_BATCH, (list(batch_details)):
-            return encode(
-                ["(address from,address to,address token,uint256 amount)[]"],
-                [batch_details],
             )
         case Commands.BALANCE_CHECK_ERC20, (str(owner), str(token), int(min_balance)):
             return encode(
