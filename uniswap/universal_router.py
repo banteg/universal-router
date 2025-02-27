@@ -1,6 +1,13 @@
+"""
+Universal Router Python interface.
+
+This module provides Python bindings for Uniswap's Universal Router, allowing the construction
+and encoding of complex multi-step transactions into a single atomic execution.
+"""
+
 from enum import IntEnum
 from itertools import cycle
-from typing import NamedTuple
+from typing import NamedTuple, Any
 
 from eth_abi import encode
 from eth_abi.packed import encode_packed
@@ -8,11 +15,16 @@ from pydantic import BaseModel, TypeAdapter
 
 
 class Command(IntEnum):
-    # https://github.com/Uniswap/universal-router/blob/main/contracts/libraries/Command.sol
+    """
+    Enumeration of all supported Universal Router commands.
+    
+    These values correspond to the command identifiers in the Universal Router contract.
+    See: https://github.com/Uniswap/universal-router/blob/v1.6.0/contracts/libraries/Commands.sol
+    """
 
     # Masks to extract certain bits of commands
-    FLAG_ALLOW_REVERT = 0x80
-    COMMAND_TYPE_MASK = 0x3F
+    FLAG_ALLOW_REVERT = 0x80  # Flag to mark a command as allowed to revert
+    COMMAND_TYPE_MASK = 0x3F  # Mask to extract the command type
 
     # Command Types. Maximum supported command at this moment is 0x3f.
 
@@ -95,32 +107,51 @@ REVERTIBLE_COMMANDS = {
 }
 
 
-# some structs ported from
-# https://github.com/Uniswap/permit2/blob/main/src/interfaces/IAllowanceTransfer.sol#L45
 class PermitDetails(NamedTuple):
-    token: str
-    amount: int
-    expiration: int
-    nonce: int
+    """
+    Details for a token permit.
+    
+    Corresponds to the PermitDetails struct in Permit2 contract.
+    https://github.com/Uniswap/permit2/blob/main/src/interfaces/IAllowanceTransfer.sol
+    """
+    token: str  # Token address
+    amount: int  # Token amount
+    expiration: int  # Timestamp when the permit expires
+    nonce: int  # Nonce for the permit
 
 
 class PermitSingle(NamedTuple):
-    details: PermitDetails
-    spender: str
-    sigDeadline: int
+    """
+    Single permit data structure.
+    
+    Corresponds to the PermitSingle struct in Permit2 contract.
+    """
+    details: PermitDetails  # Permit details
+    spender: str  # Address allowed to spend the tokens
+    sigDeadline: int  # Timestamp until which the signature is valid
 
 
 class PermitBatch(NamedTuple):
-    details: list[PermitDetails]
-    spender: str
-    sigDeadline: int
+    """
+    Batch of permits data structure.
+    
+    Corresponds to the PermitBatch struct in Permit2 contract.
+    """
+    details: list[PermitDetails]  # List of permit details
+    spender: str  # Address allowed to spend the tokens
+    sigDeadline: int  # Timestamp until which the signature is valid
 
 
 class AllowanceTransferDetails(NamedTuple):
-    owner: str
-    to: str
-    amount: int
-    token: str
+    """
+    Details for token transfer from an allowance.
+    
+    Corresponds to the AllowanceTransferDetails struct in Permit2 contract.
+    """
+    owner: str  # Token owner
+    to: str  # Recipient of the transfer
+    amount: int  # Token amount
+    token: str  # Token address
 
 
 # use pydantic type adapter to do nested casting so you can pass as dict
@@ -129,13 +160,41 @@ permit_single_adapter = TypeAdapter(PermitSingle)
 transfer_from_batch_adapter = TypeAdapter(list[AllowanceTransferDetails])
 
 
-def encode_path(path: list) -> bytes:
+def encode_path(path: list[str | int]) -> bytes:
+    """
+    Encode a Uniswap V3 path for swap.
+    
+    A path consists of alternating token addresses and fee tiers.
+    E.g. [token_in, fee, token_out] or [token_in, fee1, token_mid, fee2, token_out]
+    
+    Args:
+        path: List of token addresses and fee tiers
+        
+    Returns:
+        Packed binary encoding of the path
+    """
     types = [type for _, type in zip(path, cycle(["address", "uint24"]))]
     return encode_packed(types, path)
 
 
 def encode_command(command: Command, *args) -> bytes:
-    # https://github.com/Uniswap/universal-router/blob/main/contracts/base/Dispatcher.sol#L41
+    """
+    Encode a Universal Router command with its parameters.
+    
+    Each command has specific parameter requirements, handled by pattern matching the command type.
+    
+    Args:
+        command: The command type from the Command enum
+        *args: Command-specific parameters
+        
+    Returns:
+        ABI-encoded parameters for the command
+        
+    Raises:
+        NotImplementedError: If the command or parameter types are unknown
+    
+    See: https://github.com/Uniswap/universal-router/blob/main/contracts/base/Dispatcher.sol
+    """
     match command, args:
         case Command.V3_SWAP_EXACT_IN | Command.V3_SWAP_EXACT_OUT, [
             str(recipient),
@@ -302,22 +361,51 @@ def encode_command(command: Command, *args) -> bytes:
 
 
 class Planner(BaseModel):
+    """
+    Builder for Universal Router command sequences.
+    
+    The Planner helps construct a series of commands to be executed atomically by the
+    Universal Router contract. It manages command collection and encoding.
+    """
     commands: list[Command] = []
-    inputs: list[list] = []
+    inputs: list[list[Any]] = []
 
-    def add(self, command: Command, *args, allow_revert=False):
+    def add(self, command: Command, *args, allow_revert: bool = False):
+        """
+        Add a command to the execution plan.
+        
+        Args:
+            command: The command type from the Command enum
+            *args: Command-specific parameters
+            allow_revert: Whether this command is allowed to revert
+                          (only applicable for specific commands)
+                          
+        Returns:
+            self: For method chaining
+            
+        Raises:
+            ValueError: If the command cannot be allowed to revert but allow_revert is True
+        """
         if allow_revert:
             if command not in REVERTIBLE_COMMANDS:
                 raise ValueError(f"{command.name} cannot be allowed to revert")
             command |= Command.FLAG_ALLOW_REVERT
 
-        # check it's encodeable
+        # Validate the command and args are encodeable
         encode_command(command, *args)
         self.commands.append(command)
         self.inputs.append(args)
         return self
 
     def build(self) -> tuple[bytes, list[bytes]]:
+        """
+        Build the final command and input arrays for the Universal Router.
+        
+        Returns:
+            A tuple of (commands, inputs) where:
+            - commands: Bytes containing the command identifiers
+            - inputs: List of encoded command parameters
+        """
         commands = bytes(self.commands)
         inputs = [
             encode_command(command, *args) for command, args in zip(self.commands, self.inputs)
@@ -331,8 +419,22 @@ class Planner(BaseModel):
         amount_min: int,
         path: list | bytes,
         payer_is_user: bool,
-        allow_revert=False,
+        allow_revert: bool = False,
     ):
+        """
+        Add a Uniswap V3 exactInput swap command.
+        
+        Args:
+            recipient: Address that will receive the output tokens
+            amount: Exact amount of input tokens to swap
+            amount_min: Minimum amount of output tokens to receive
+            path: Token path as either a list [tokenIn, fee, tokenOut] or pre-encoded bytes
+            payer_is_user: Whether the input tokens come from the transaction sender
+            allow_revert: Whether this command is allowed to revert
+            
+        Returns:
+            self: For method chaining
+        """
         self.add(
             Command.V3_SWAP_EXACT_IN,
             recipient,
@@ -424,9 +526,29 @@ class Planner(BaseModel):
         )
 
     def wrap_eth(self, recipient: str, amount_min: int):
+        """
+        Add a command to wrap ETH into WETH.
+        
+        Args:
+            recipient: Address that will receive the WETH
+            amount_min: Amount of ETH to wrap
+            
+        Returns:
+            self: For method chaining
+        """
         self.add(Command.WRAP_ETH, recipient, amount_min)
 
     def unwrap_weth(self, recipient: str, amount_min: int):
+        """
+        Add a command to unwrap WETH back into ETH.
+        
+        Args:
+            recipient: Address that will receive the ETH
+            amount_min: Amount of WETH to unwrap
+            
+        Returns:
+            self: For method chaining
+        """
         self.add(Command.UNWRAP_WETH, recipient, amount_min)
 
     def balance_check_erc20(self, owner: str, token: str, min_balance: int):
@@ -496,4 +618,14 @@ class Planner(BaseModel):
         self.add(Command.EXECUTE_SUB_PLAN, commands, inputs, allow_revert=allow_revert)
 
     def approve_erc20(self, token: str, spender: int):
+        """
+        Add a command to approve an ERC20 token for spending.
+        
+        Args:
+            token: The ERC20 token address
+            spender: 1 to enable approval, 0 to disable
+            
+        Returns:
+            self: For method chaining
+        """
         self.add(Command.APPROVE_ERC20, token, spender)
